@@ -19,3 +19,21 @@ docker compose down -v && docker compose up -d
 
 ## Backend connection URL (Node/PHP)
 postgres://newscenter:nc_secret@db:5432/newscenter
+
+---
+
+# Backend Service (Sprint 2)
+
+The backend is built with Node.js and implements the database logic as well as the real-time Publish/Subscribe system.
+
+## Prereqs
+- Node.js (see `backend/package.json` for dependencies)
+- A running database instance (see above: `docker compose up -d`)
+- A `.env` file in the `backend/` folder with the correct DB credentials (Host: `localhost` if the backend is running directly on the host machine).
+
+## Run
+Navigate to the `backend/` folder and start the server:
+
+```bash
+npm install 
+npm run dev
