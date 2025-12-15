@@ -3,6 +3,12 @@ const { pool } = require("../db");
 
 const router = express.Router();
 
+const isUuid = (value) =>
+  typeof value === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+
 // Create new tag
 router.post("/", async (req, res) => {
   const { name, description } = req.body;
@@ -21,8 +27,12 @@ router.post("/", async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error("Error creating tag:", err.message);
-    res.status(500).json({ error: "Failed to create tag" });
+    console.error("Error creating tag:", err);
+    res.status(500).json({
+      error: "Failed to create tag",
+      details: err.message,
+      code: err.code || null,
+    });
   }
 });
 
@@ -37,8 +47,12 @@ router.get("/", async (_req, res) => {
 
     res.json(result.rows);
   } catch (err) {
-    console.error("Error fetching tags:", err.message);
-    res.status(500).json({ error: "Failed to fetch tags" });
+    console.error("Error fetching tags:", err);
+    res.status(500).json({
+      error: "Failed to fetch tags",
+      details: err.message,
+      code: err.code || null,
+    });
   }
 });
 
@@ -46,11 +60,15 @@ router.get("/", async (_req, res) => {
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
+  if (!isUuid(id)) {
+    return res.status(400).json({ error: "Invalid tag id (must be UUID)" });
+  }
+
   try {
     const result = await pool.query(
       `SELECT id, name, description, created_at AS "createdAt"
        FROM tags
-       WHERE id = $1`,
+       WHERE id = $1::uuid`,
       [id]
     );
 
@@ -60,8 +78,12 @@ router.get("/:id", async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error("Error fetching tag:", err.message);
-    res.status(500).json({ error: "Failed to fetch tag" });
+    console.error("Error fetching tag:", err);
+    res.status(500).json({
+      error: "Failed to fetch tag",
+      details: err.message,
+      code: err.code || null,
+    });
   }
 });
 

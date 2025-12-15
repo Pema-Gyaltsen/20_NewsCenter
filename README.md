@@ -37,3 +37,13 @@ Navigate to the `backend/` folder and start the server:
 ```bash
 npm install 
 npm run dev
+
+
+# Backend Service (Sprint 3)
+
+Swagger integration completed
+Node.js required for it
+ 1. cd backend
+ 2 npm start or npm.cmd start
+ if that doesn't work then - npm.cmd install dotenv
+3. if it works -> http://localhost:3000/api-docs/
