@@ -201,4 +201,23 @@ router.get("/:id/subscriptions", async (req, res) => {
   }
 });
 
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  // TODO: Hier echte Passwort-Prüfung einbauen
+  // Für den Prototyp checken wir nur, ob der User existiert
+  try {
+    const result = await pool.query(
+      `SELECT id, display_name, email FROM users WHERE email = $1`,
+      [email]
+    );
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: "Ungültige Anmeldedaten" });
+    }
+    // Einfacher Erfolg
+    res.json({ message: "Login erfolgreich", user: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
