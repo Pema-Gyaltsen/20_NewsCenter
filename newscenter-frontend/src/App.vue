@@ -1,20 +1,17 @@
 <template>
   <div class="shell">
-    <HomeView />
+    <router-view />
   </div>
 </template>
 
 <script>
-import HomeView from "./views/HomeView.vue";
 
 export default {
   name: "App",
-  components: { HomeView },
 };
 </script>
 
 <style>
-/* Global polish */
 html, body { height: 100%; }
 body {
   margin: 0;
