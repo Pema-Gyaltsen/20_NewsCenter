@@ -63,12 +63,12 @@ export default {
           password: this.password
         });
 
+        const userData = response.data.user;
+        localStorage.setItem('user', JSON.stringify(userData));
+
         console.log('Login erfolgreich:', response.data);
-        alert('Login erfolgreich!'); // Temporäres Feedback
 
-        // Weiterleitung zum Dashboard/Home nach Erfolg
         this.$router.push('/');
-
       } catch (error) {
         // Fehlerbehandlung und Anzeige für den Nutzer
         if (error.response && error.response.data && error.response.data.error) {
