@@ -11,6 +11,8 @@
     <div class="actions">
       <a class="link" :href="apiDocsUrl" target="_blank" rel="noreferrer">API Docs</a>
       <button class="btn" @click="$emit('refresh')">Refresh</button>
+      
+      <button class="btn logout-btn" @click="logout">Logout</button>
     </div>
   </header>
 </template>
@@ -23,6 +25,14 @@ export default {
       return (process.env.VUE_APP_API_URL || "http://localhost:3000") + "/api-docs";
     },
   },
+  methods: {
+    logout() {
+      // 1. User aus dem Speicher löschen
+      localStorage.removeItem("user");
+      // 2. Zur Login-Seite zurückschicken
+      this.$router.push("/login");
+    }
+  }
 };
 </script>
 
@@ -68,4 +78,10 @@ export default {
   cursor: pointer;
 }
 .btn:hover { background: rgba(255,255,255,0.08); }
+
+/* Rötlicher Hover-Effekt für den Logout-Button */
+.logout-btn:hover {
+  background: rgba(255, 80, 80, 0.15);
+  border-color: rgba(255, 80, 80, 0.4);
+}
 </style>
