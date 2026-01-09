@@ -1,16 +1,23 @@
 const express = require("express");
 const { pool } = require("../db");
+const auth = require("../middleware/auth");
 
 module.exports = (broadcaster) => {
   const router = express.Router();
 
-  router.post("/", async (req, res) => {
-    const { authorId, title, body } = req.body;
+  // Create message (requires auth)
+  router.post("/", auth, async (req, res) => {
+    // depending on your auth middleware, it might be:
+    // req.user.id  OR  req.user.userId
+    const authorId = req.user?.id || req.user?.userId;
 
-    if (!authorId || !title || !body) {
-      return res.status(400).json({
-        error: "authorId, title and body are required",
-      });
+    const { title, body } = req.body;
+
+    if (!authorId) {
+      return res.status(401).json({ error: "UNAUTHORIZED" });
+    }
+    if (!title || !body) {
+      return res.status(400).json({ error: "TITLE_AND_BODY_REQUIRED" });
     }
 
     try {
@@ -26,8 +33,11 @@ module.exports = (broadcaster) => {
       );
 
       const newMessage = result.rows[0];
-      
-      broadcaster(newMessage);
+
+      // notify websocket / sse / whatever broadcaster is
+      if (typeof broadcaster === "function") {
+        broadcaster(newMessage);
+      }
 
       return res.status(201).json(newMessage);
     } catch (err) {
@@ -40,7 +50,8 @@ module.exports = (broadcaster) => {
     }
   });
 
-  router.post("/:id/tags", async (req, res) => {
+  // Tag a message (usually should also require auth)
+  router.post("/:id/tags", auth, async (req, res) => {
     const { id } = req.params;
     const { tagId } = req.body;
 
@@ -68,6 +79,7 @@ module.exports = (broadcaster) => {
     }
   });
 
+  // List messages (public)
   router.get("/", async (_req, res) => {
     try {
       const result = await pool.query(
@@ -91,6 +103,7 @@ module.exports = (broadcaster) => {
     }
   });
 
+  // Get one message (public)
   router.get("/:id", async (req, res) => {
     const { id } = req.params;
 

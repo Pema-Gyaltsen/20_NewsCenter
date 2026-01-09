@@ -1,5 +1,7 @@
 const express = require("express");
 const { pool } = require("../db");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 
 const router = express.Router();
 
@@ -20,9 +22,9 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // Für das Projekt speichern wir das Passwort zur Vereinfachung
-    // direkt in password_hash. In echt müsste das gehasht werden!
-    const passwordHash = password || null;
+    // OPTION A (recommended): hash if password provided
+    // If you really want plaintext for prototyping, replace this with: const passwordHash = password || null;
+    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
 
     const result = await pool.query(
       `INSERT INTO users (display_name, email, password_hash)
@@ -100,7 +102,6 @@ router.get("/:id", async (req, res) => {
 });
 
 // User-Tag-Subscription anlegen
-// POST /users/:id/subscriptions { tagId }
 router.post("/:id/subscriptions", async (req, res) => {
   const { id } = req.params;
   const { tagId } = req.body;
@@ -113,7 +114,6 @@ router.post("/:id/subscriptions", async (req, res) => {
   }
 
   try {
-    // Prüfen, ob User existiert
     const userResult = await pool.query(
       `SELECT id FROM users WHERE id = $1::uuid`,
       [id]
@@ -122,7 +122,6 @@ router.post("/:id/subscriptions", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Prüfen, ob Tag existiert
     const tagResult = await pool.query(
       `SELECT id FROM tags WHERE id = $1::uuid`,
       [tagId]
@@ -140,7 +139,6 @@ router.post("/:id/subscriptions", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      // Subscription existiert bereits
       return res.status(200).json({
         userId: id,
         tagId,
@@ -160,7 +158,6 @@ router.post("/:id/subscriptions", async (req, res) => {
 });
 
 // Abonnierte Tags eines Users holen
-// GET /users/:id/subscriptions
 router.get("/:id/subscriptions", async (req, res) => {
   const { id } = req.params;
 
@@ -169,7 +166,6 @@ router.get("/:id/subscriptions", async (req, res) => {
   }
 
   try {
-    // Erst sicherstellen, dass der User existiert
     const userResult = await pool.query(
       `SELECT id FROM users WHERE id = $1::uuid`,
       [id]
@@ -201,22 +197,62 @@ router.get("/:id/subscriptions", async (req, res) => {
   }
 });
 
+// ✅ Login with password check + JWT
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  // TODO: Hier echte Passwort-Prüfung einbauen
-  // Für den Prototyp checken wir nur, ob der User existiert
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "email and password are required" });
+  }
+
   try {
     const result = await pool.query(
-      `SELECT id, display_name, email FROM users WHERE email = $1`,
+      `SELECT id, email, display_name, password_hash FROM users WHERE email = $1`,
       [email]
     );
+
     if (result.rows.length === 0) {
       return res.status(401).json({ error: "Ungültige Anmeldedaten" });
     }
-    // Einfacher Erfolg
-    res.json({ message: "Login erfolgreich", user: result.rows[0] });
+
+    const user = result.rows[0];
+
+    // TEMP COMPATIBILITY:
+    // - if password_hash is bcrypt ($2...), use bcrypt.compare
+    // - else fallback to plaintext (if your DB has plain passwords)
+    let ok = false;
+    if (user.password_hash && user.password_hash.startsWith("$2")) {
+      ok = await bcrypt.compare(password, user.password_hash);
+    } else {
+      ok = password === user.password_hash;
+    }
+
+    if (!ok) {
+      return res.status(401).json({ error: "Ungültige Anmeldedaten" });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ error: "JWT_SECRET is not set" });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "2h" }
+    );
+
+    return res.json({
+      message: "Login erfolgreich",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.display_name,
+      },
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Login error:", err);
+    return res.status(500).json({ error: "Login failed", details: err.message });
   }
 });
 
