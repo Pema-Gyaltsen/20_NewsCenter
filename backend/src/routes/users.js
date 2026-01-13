@@ -5,39 +5,64 @@ const bcrypt = require("bcrypt");
 
 const router = express.Router();
 
+const SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
+
 const isUuid = (value) =>
   typeof value === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
   );
 
-// Neuen User anlegen
-router.post("/", async (req, res) => {
-  const { displayName, email, password } = req.body;
+const normalizeEmail = (email) =>
+  typeof email === "string" ? email.trim().toLowerCase() : "";
 
-  if (!displayName || !email) {
-    return res
-      .status(400)
-      .json({ error: "displayName and email are required" });
+/**
+ * POST /users
+ * Neuen User anlegen (mit sicherem Passwort-Hashing)
+ */
+router.post("/", async (req, res) => {
+  const displayName =
+    typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
+  const email = normalizeEmail(req.body.email);
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+
+  // Validation
+  if (!displayName || !email || !password) {
+    return res.status(400).json({
+      error: "displayName, email and password are required",
+    });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({
+      error: "Password must be at least 8 characters long",
+    });
   }
 
   try {
-    // OPTION A (recommended): hash if password provided
-    // If you really want plaintext for prototyping, replace this with: const passwordHash = password || null;
-    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+    // Hash password (never store plaintext)
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     const result = await pool.query(
       `INSERT INTO users (display_name, email, password_hash)
        VALUES ($1, $2, $3)
-       RETURNING id, display_name AS "displayName",
-                 email, created_at AS "createdAt"`,
+       RETURNING id,
+                 display_name AS "displayName",
+                 email,
+                 created_at AS "createdAt"`,
       [displayName, email, passwordHash]
     );
 
-    res.status(201).json(result.rows[0]);
+    return res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error("Error creating user:", err);
-    res.status(500).json({
+    console.error("Error creating user:", err.message);
+
+    // Duplicate email (unique constraint) -> nicer message
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "Email already exists" });
+    }
+
+    return res.status(500).json({
       error: "Failed to create user",
       details: err.message,
       code: err.code || null,
@@ -45,7 +70,10 @@ router.post("/", async (req, res) => {
   }
 });
 
-// Alle User holen
+/**
+ * GET /users
+ * Alle User holen
+ */
 router.get("/", async (_req, res) => {
   try {
     const result = await pool.query(
@@ -56,10 +84,10 @@ router.get("/", async (_req, res) => {
        FROM users
        ORDER BY created_at DESC`
     );
-    res.json(result.rows);
+    return res.json(result.rows);
   } catch (err) {
-    console.error("Error fetching users:", err);
-    res.status(500).json({
+    console.error("Error fetching users:", err.message);
+    return res.status(500).json({
       error: "Failed to fetch users",
       details: err.message,
       code: err.code || null,
@@ -67,7 +95,10 @@ router.get("/", async (_req, res) => {
   }
 });
 
-// Einen User nach ID holen
+/**
+ * GET /users/:id
+ * Einen User nach ID holen
+ */
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -90,10 +121,10 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.json(result.rows[0]);
+    return res.json(result.rows[0]);
   } catch (err) {
-    console.error("Error fetching user:", err);
-    res.status(500).json({
+    console.error("Error fetching user:", err.message);
+    return res.status(500).json({
       error: "Failed to fetch user",
       details: err.message,
       code: err.code || null,
@@ -101,7 +132,10 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// User-Tag-Subscription anlegen
+/**
+ * POST /users/:id/subscriptions
+ * User-Tag-Subscription anlegen
+ */
 router.post("/:id/subscriptions", async (req, res) => {
   const { id } = req.params;
   const { tagId } = req.body;
@@ -148,7 +182,7 @@ router.post("/:id/subscriptions", async (req, res) => {
 
     return res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error("Error creating subscription:", err);
+    console.error("Error creating subscription:", err.message);
     return res.status(500).json({
       error: "Failed to create subscription",
       details: err.message,
@@ -157,7 +191,10 @@ router.post("/:id/subscriptions", async (req, res) => {
   }
 });
 
-// Abonnierte Tags eines Users holen
+/**
+ * GET /users/:id/subscriptions
+ * Abonnierte Tags eines Users holen
+ */
 router.get("/:id/subscriptions", async (req, res) => {
   const { id } = req.params;
 
@@ -188,7 +225,7 @@ router.get("/:id/subscriptions", async (req, res) => {
 
     return res.json(result.rows);
   } catch (err) {
-    console.error("Error fetching user subscriptions:", err);
+    console.error("Error fetching user subscriptions:", err.message);
     return res.status(500).json({
       error: "Failed to fetch user subscriptions",
       details: err.message,
@@ -197,17 +234,27 @@ router.get("/:id/subscriptions", async (req, res) => {
   }
 });
 
-// ✅ Login with password check + JWT
+/**
+ * POST /users/login
+ * Login mit bcrypt + JWT
+ */
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  const email = normalizeEmail(req.body.email);
+  const password = typeof req.body.password === "string" ? req.body.password : "";
 
   if (!email || !password) {
     return res.status(400).json({ error: "email and password are required" });
   }
 
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({ error: "JWT_SECRET is not set" });
+  }
+
   try {
     const result = await pool.query(
-      `SELECT id, email, display_name, password_hash FROM users WHERE email = $1`,
+      `SELECT id, email, display_name, password_hash
+       FROM users
+       WHERE email = $1`,
       [email]
     );
 
@@ -217,22 +264,14 @@ router.post("/login", async (req, res) => {
 
     const user = result.rows[0];
 
-    // TEMP COMPATIBILITY:
-    // - if password_hash is bcrypt ($2...), use bcrypt.compare
-    // - else fallback to plaintext (if your DB has plain passwords)
-    let ok = false;
-    if (user.password_hash && user.password_hash.startsWith("$2")) {
-      ok = await bcrypt.compare(password, user.password_hash);
-    } else {
-      ok = password === user.password_hash;
-    }
-
-    if (!ok) {
+    // Must be a bcrypt hash
+    if (!user.password_hash || !user.password_hash.startsWith("$2")) {
       return res.status(401).json({ error: "Ungültige Anmeldedaten" });
     }
 
-    if (!process.env.JWT_SECRET) {
-      return res.status(500).json({ error: "JWT_SECRET is not set" });
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) {
+      return res.status(401).json({ error: "Ungültige Anmeldedaten" });
     }
 
     const token = jwt.sign(
@@ -251,7 +290,7 @@ router.post("/login", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("Login error:", err.message);
     return res.status(500).json({ error: "Login failed", details: err.message });
   }
 });
