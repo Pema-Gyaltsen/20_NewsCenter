@@ -27,9 +27,8 @@ export default {
   },
   methods: {
     logout() {
-      // 1. User aus dem Speicher löschen
       localStorage.removeItem("user");
-      // 2. Zur Login-Seite zurückschicken
+      localStorage.removeItem("token"); // <--- NEU: Auch das Token löschen
       this.$router.push("/login");
     }
   }

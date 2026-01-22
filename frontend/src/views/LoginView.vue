@@ -56,17 +56,18 @@ export default {
       this.isLoading = true;
       this.errorMessage = '';
 
-      try {
-        // Sendet POST an /users/login wie in der Anforderung
+       try {
         const response = await api.post('/users/login', {
           email: this.email,
           password: this.password
         });
 
-        const userData = response.data.user;
-        localStorage.setItem('user', JSON.stringify(userData));
+        // 1. Token UND User extrahieren
+        const { token, user } = response.data;
 
-        console.log('Login erfolgreich:', response.data);
+        // 2. Beides speichern
+        localStorage.setItem('token', token); // <--- WICHTIG für Issue 5
+        localStorage.setItem('user', JSON.stringify(user));
 
         this.$router.push('/');
       } catch (error) {
