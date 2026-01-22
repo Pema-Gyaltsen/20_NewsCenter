@@ -1,7 +1,7 @@
 <template>
   <header class="header">
     <div class="brand">
-      <div class="logo">NC</div>
+      <img src="@/assets/logo2.png" alt="NewsCenter Logo" class="logo" />
       <div>
         <div class="title">NewsCenter</div>
         <div class="subtitle">Internal news & announcements</div>
@@ -82,5 +82,10 @@ export default {
 .logout-btn:hover {
   background: rgba(255, 80, 80, 0.15);
   border-color: rgba(255, 80, 80, 0.4);
+}
+.logo {
+  height: 60px; /* Oder wie groß du es haben willst */
+  width: 70px;  /* Damit das Seitenverhältnis stimmt */
+  margin-right: 5px; /* Abstand zum Text */
 }
 </style>

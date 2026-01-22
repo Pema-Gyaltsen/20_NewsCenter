@@ -5,23 +5,17 @@
         <div class="panelTitle">Publish</div>
         <div class="panelSub">Create a new announcement</div>
       </div>
-      <button class="mini" @click="fillDemoAuthor">Use demo author</button>
     </div>
 
     <form class="form" @submit.prevent="submit">
       <label class="label">
-        Author ID (UUID)
-        <input class="input" v-model.trim="form.authorId" placeholder="e.g. b35e..." />
-      </label>
-
-      <label class="label">
         Title
-        <input class="input" v-model.trim="form.title" placeholder="Short headline…" />
+        <input class="input" v-model.trim="form.title" placeholder="Short headline…" required />
       </label>
 
       <label class="label">
         Body
-        <textarea class="input textarea" v-model.trim="form.body" placeholder="Write the message…"></textarea>
+        <textarea class="input textarea" v-model.trim="form.body" placeholder="Write the message…" required></textarea>
       </label>
 
       <div class="row">
@@ -37,9 +31,6 @@
       <div v-if="error" class="error">Create error: {{ error }}</div>
       <div v-if="success" class="success">{{ success }}</div>
 
-      <div class="hint">
-        Note: authorId must be a real UUID. “uuid-of-user” will fail.
-      </div>
     </form>
   </section>
 </template>
@@ -56,22 +47,21 @@ export default {
   data() {
     return {
       form: {
-        authorId: "",
+        // authorId ist hier weg!
         title: "",
         body: "",
       },
     };
   },
   methods: {
-    fillDemoAuthor() {
-      this.form.authorId = "b35e7903-6975-4748-80af-ec2614f0b179";
-    },
+    // fillDemoAuthor() ist komplett gelöscht, brauchen wir nicht mehr.
+    
     reset() {
       this.form.title = "";
       this.form.body = "";
-      // keep authorId (nice UX)
     },
     submit() {
+      // Sendet nur noch title und body ans Eltern-Element (HomeView)
       this.$emit("submit", { ...this.form });
     },
   },
@@ -79,6 +69,7 @@ export default {
 </script>
 
 <style scoped>
+/* Dein Style war fast perfekt, ich habe nur die ungenutzte .mini Klasse entfernt */
 .panel {
   border: 1px solid #2a2f3a;
   border-radius: 16px;
@@ -96,6 +87,7 @@ export default {
   padding: 10px 10px;
   background: rgba(0,0,0,0.25);
   color: #e9eefc;
+  font-family: inherit; /* Wichtig für Textareas */
 }
 .textarea { min-height: 90px; resize: vertical; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
@@ -118,15 +110,7 @@ export default {
   cursor: pointer;
 }
 .btn:hover { background: rgba(255,255,255,0.08); }
-.mini {
-  padding: 7px 10px;
-  border-radius: 10px;
-  border: 1px solid #3a4354;
-  background: rgba(255,255,255,0.05);
-  cursor: pointer;
-  color: inherit;
-  font-size: 12px;
-}
+
 .error { color: #ff6b6b; font-size: 12px; margin-top: 4px; }
 .success { color: #2ecc71; font-size: 12px; margin-top: 4px; }
 .hint { color: #a9b1c3; font-size: 12px; margin-top: 4px; }

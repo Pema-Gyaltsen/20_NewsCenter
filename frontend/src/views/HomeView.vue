@@ -117,8 +117,8 @@ export default {
       this.createSuccess = null;
 
       try {
-        if (!payload.authorId || !payload.title || !payload.body) {
-          throw new Error("Please fill authorId, title, and body.");
+        if (!payload.title || !payload.body) {
+          throw new Error("Please fill title, and body.");
         }
 
         await createMessage(payload);

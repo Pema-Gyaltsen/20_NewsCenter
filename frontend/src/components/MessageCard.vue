@@ -9,7 +9,7 @@
 
     <div class="meta">
       <span class="pill">author</span>
-      <code class="code">{{ message.authorId }}</code>
+      <code class="code">{{ message.authorName }}</code>
     </div>
   </article>
 </template>
