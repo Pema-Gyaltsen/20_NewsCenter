@@ -1,18 +1,18 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from './views/HomeView.vue'
-import LoginView from './views/LoginView.vue' 
+import LandingView from './views/LandingView.vue'
 
 const routes = [
     { 
       path: '/', 
-      component: HomeView,
-      meta: { requiresAuth: true } // Diese Route braucht einen Login
+      component: LandingView,   // Diese Route ist NUR für Gäste (wer eingeloggt ist, braucht kein Login)
+      meta: { guestOnly: true, title: 'Willkommen - NewsCenter' }
     },
     { 
-      path: '/login', 
-      component: LoginView,
-      meta: { guestOnly: true }    // Diese Route ist NUR für Gäste (wer eingeloggt ist, braucht kein Login)
-    }
+      path: '/feed', 
+      component: HomeView,
+      meta: { requiresAuth: true, title: 'Feed - NewsCenter' } // Diese Route braucht einen Login
+    },
   ]
 
 const router = createRouter({
@@ -24,13 +24,21 @@ router.beforeEach((to, from, next) => {
     const isAuthenticated = localStorage.getItem('user') !== null;
 
     if (to.meta.requiresAuth && !isAuthenticated) {
-      next('/login'); 
+      next('/'); 
     } 
     else if (to.meta.guestOnly && isAuthenticated) {
-      next('/'); 
+      next('/feed'); 
     } 
     else {
       next();
+    }
+  });
+  router.afterEach((to) => {
+    const defaultTitle = 'NewsCenter';
+    if (to.meta.title) {
+      document.title = to.meta.title;
+    } else {
+      document.title = defaultTitle;
     }
   });
   

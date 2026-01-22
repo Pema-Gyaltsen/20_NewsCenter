@@ -29,7 +29,7 @@ export default {
     logout() {
       localStorage.removeItem("user");
       localStorage.removeItem("token"); // <--- NEU: Auch das Token löschen
-      this.$router.push("/login");
+      this.$router.push("/");
     }
   }
 };
