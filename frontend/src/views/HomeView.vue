@@ -39,7 +39,6 @@ import TagFilter from "../components/TagFilter.vue";
 import MessageList from "../components/MessageList.vue";
 import CreateMessageForm from "../components/CreateMessageForm.vue";
 
-// Wir brauchen direkten API Zugriff für die komplexeren Anfragen
 import api from "../services/api"; 
 import { getTags } from "../services/tagsService";
 
@@ -62,14 +61,23 @@ export default {
       createLoading: false,
       createError: null,
       createSuccess: null,
+      
+      pollingInterval: null, 
     };
   },
 
-  // "computed: { filteredMessages ... }" IST GELÖSCHT 
-  // Das Backend filtert jetzt für uns!
-
   async mounted() {
     await Promise.all([this.loadTags(), this.loadMessages()]);
+
+    this.pollingInterval = setInterval(() => {
+      this.loadMessages(true);
+    }, 10000); 
+  },
+
+  beforeUnmount() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+    }
   },
 
   methods: {
@@ -77,10 +85,9 @@ export default {
       await Promise.all([this.loadTags(), this.loadMessages()]);
     },
 
-    // NEU: Wenn ein Tag geklickt wird, laden wir die Nachrichten neu
     onSelectTag(tagName) {
       this.selectedTag = tagName;
-      this.loadMessages(); // <--- Trigger Backend Request
+      this.loadMessages(); 
     },
 
     async loadTags() {
@@ -95,14 +102,16 @@ export default {
       }
     },
 
-    // NEU: Filter-Logik im Backend Aufruf
-    async loadMessages() {
-      this.messagesLoading = true;
+    async loadMessages(isBackground = false) {
+      // Nur Ladebalken zeigen, wenn es KEIN Hintergrund-Update ist
+      if (!isBackground) {
+        this.messagesLoading = true;
+      }
+      
       this.messagesError = null;
       try {
         let url = '/messages';
         
-        // Wenn ein Tag ausgewählt ist, hängen wir ?tag=IT an die URL
         if (this.selectedTag) {
           url += `?tag=${encodeURIComponent(this.selectedTag)}`;
         }
@@ -111,25 +120,27 @@ export default {
         this.messages = response.data;
 
       } catch (e) {
-        this.messagesError = e?.message || String(e);
+        // Fehler im Hintergrund ignorieren wir meistens, oder loggen sie nur
+        if (!isBackground) {
+            this.messagesError = e?.message || String(e);
+        } else {
+            console.error("Polling error:", e);
+        }
       } finally {
         this.messagesLoading = false;
       }
     },
 
-    // NEU: Der 2-Schritte-Prozess beim Erstellen
     async onCreateMessage(payload) {
       this.createLoading = true;
       this.createError = null;
       this.createSuccess = null;
 
       try {
-        // Validierung
         if (!payload.title || !payload.body || !payload.tagId) {
           throw new Error("Bitte Titel, Text und ein Thema wählen.");
         }
 
-        // SCHRITT 1: Nachricht erstellen
         const msgResponse = await api.post('/messages', {
           title: payload.title,
           body: payload.body
@@ -137,21 +148,19 @@ export default {
         
         const newMessageId = msgResponse.data.id;
 
-        // SCHRITT 2: Tag verknüpfen
         await api.post(`/messages/${newMessageId}/tags`, {
           tagId: payload.tagId
         });
 
         this.createSuccess = "Nachricht erfolgreich veröffentlicht!";
         
-        // Feed neu laden, damit die neue Nachricht oben erscheint
+        // Feed neu laden
         await this.loadMessages();
 
       } catch (e) {
         this.createError = e?.response?.data?.error || e?.message || String(e);
       } finally {
         this.createLoading = false;
-        // Erfolgsmeldung nach 3 Sekunden ausblenden
         if (this.createSuccess) {
           setTimeout(() => (this.createSuccess = null), 3000);
         }
@@ -162,6 +171,7 @@ export default {
 </script>
 
 <style scoped>
+/* Styles bleiben gleich */
 .page { display: grid; gap: 14px; }
 .layout {
   display: grid;
