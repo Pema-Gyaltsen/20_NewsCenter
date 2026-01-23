@@ -71,6 +71,7 @@ export default {
 
     this.pollingInterval = setInterval(() => {
       this.loadMessages(true);
+      this.loadTags(true);
     }, 10000); 
   },
 
@@ -90,13 +91,20 @@ export default {
       this.loadMessages(); 
     },
 
-    async loadTags() {
-      this.tagsLoading = true;
+    async loadTags(isBackground = false) {
+      if (!isBackground) {
+        this.tagsLoading = true;
+      }
       this.tagsError = null;
       try {
         this.tags = await getTags();
       } catch (e) {
-        this.tagsError = e?.message || String(e);
+        // Fehler im Hintergrund nur loggen, nicht dem User zeigen
+        if (!isBackground) {
+           this.tagsError = e?.message || String(e);
+        } else {
+           console.error("Tag polling error:", e);
+        }
       } finally {
         this.tagsLoading = false;
       }
