@@ -84,22 +84,50 @@ module.exports = (broadcaster) => {
   // 3. GET / - Alle Nachrichten lesen (Öffentlich oder Auth?)
   // ---------------------------------------------------------
   // Aktuell öffentlich. Falls nur für User, füge 'auth' hinzu.
-  // GET / - Alle Nachrichten lesen
+  // GET / - Nachrichten lesen (Optional mit ?tag=Name Filter)
   router.get("/", async (req, res) => {
-    try {
-      const result = await pool.query(
-        `SELECT m.id,
-                m.author_id AS "authorId",
-                u.display_name AS "authorName",  -- <--- NEU: Der Name aus der User-Tabelle
-                m.title,
-                m.body,
-                m.created_at AS "createdAt"
-         FROM messages m
-         LEFT JOIN users u ON m.author_id = u.id -- <--- NEU: Verknüpfung
-         ORDER BY m.created_at DESC`
-      );
+    const { tag } = req.query; // Liest ?tag=IT aus der URL
 
+    try {
+      let query;
+      let params = [];
+
+      if (tag) {
+        // FALL A: Es wird gefiltert
+        // Wir müssen 4 Tabellen verknüpfen: messages -> users, messages -> message_tags -> tags
+        query = `
+          SELECT m.id,
+                 m.author_id AS "authorId",
+                 u.display_name AS "authorName",
+                 m.title,
+                 m.body,
+                 m.created_at AS "createdAt"
+          FROM messages m
+          LEFT JOIN users u ON m.author_id = u.id
+          JOIN message_tags mt ON m.id = mt.message_id
+          JOIN tags t ON mt.tag_id = t.id
+          WHERE t.name = $1
+          ORDER BY m.created_at DESC
+        `;
+        params = [tag];
+      } else {
+        // FALL B: Kein Filter, lade alles
+        query = `
+          SELECT m.id,
+                 m.author_id AS "authorId",
+                 u.display_name AS "authorName",
+                 m.title,
+                 m.body,
+                 m.created_at AS "createdAt"
+          FROM messages m
+          LEFT JOIN users u ON m.author_id = u.id
+          ORDER BY m.created_at DESC
+        `;
+      }
+
+      const result = await pool.query(query, params);
       return res.json(result.rows);
+
     } catch (err) {
       console.error("Error fetching messages:", err);
       return res.status(500).json({ error: "Failed to fetch messages" });
