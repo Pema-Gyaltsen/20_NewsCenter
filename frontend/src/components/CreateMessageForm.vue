@@ -8,6 +8,17 @@
     </div>
 
     <form class="form" @submit.prevent="submit">
+
+    <label class="label">
+        Topic
+        <select class="input" v-model="form.tagId" required>
+          <option value="" disabled>Select a topic...</option>
+          <option v-for="tag in availableTags" :key="tag.id" :value="tag.id">
+            # {{ tag.name }}
+          </option>
+        </select>
+      </label>
+      
       <label class="label">
         Title
         <input class="input" v-model.trim="form.title" placeholder="Short headline…" required />
@@ -42,12 +53,13 @@ export default {
     loading: { type: Boolean, default: false },
     error: { type: String, default: null },
     success: { type: String, default: null },
+    availableTags: { type: Array, default: () => []}
   },
   emits: ["submit"],
   data() {
     return {
       form: {
-        // authorId ist hier weg!
+        tagId: "",
         title: "",
         body: "",
       },
@@ -69,7 +81,6 @@ export default {
 </script>
 
 <style scoped>
-/* Dein Style war fast perfekt, ich habe nur die ungenutzte .mini Klasse entfernt */
 .panel {
   border: 1px solid #2a2f3a;
   border-radius: 16px;
@@ -114,4 +125,8 @@ export default {
 .error { color: #ff6b6b; font-size: 12px; margin-top: 4px; }
 .success { color: #2ecc71; font-size: 12px; margin-top: 4px; }
 .hint { color: #a9b1c3; font-size: 12px; margin-top: 4px; }
+select.input {
+  appearance: none; /* Entfernt Standard-Browser-Pfeil (optional) */
+  cursor: pointer;
+}
 </style>

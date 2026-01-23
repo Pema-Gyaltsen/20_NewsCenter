@@ -17,11 +17,12 @@
           :loading="createLoading"
           :error="createError"
           :success="createSuccess"
+          :availableTags="tags"
           @submit="onCreateMessage"
         />
 
         <MessageList
-          :messages="filteredMessages"
+          :messages="messages"
           :loading="messagesLoading"
           :error="messagesError"
           :selectedTag="selectedTag"
@@ -38,8 +39,9 @@ import TagFilter from "../components/TagFilter.vue";
 import MessageList from "../components/MessageList.vue";
 import CreateMessageForm from "../components/CreateMessageForm.vue";
 
+// Wir brauchen direkten API Zugriff für die komplexeren Anfragen
+import api from "../services/api"; 
 import { getTags } from "../services/tagsService";
-import { getMessages, createMessage } from "../services/messagesService";
 
 export default {
   name: "HomeView",
@@ -63,15 +65,8 @@ export default {
     };
   },
 
-  computed: {
-    // IMPORTANT: Your /messages currently has no tag field.
-    // So this is a "UI-ready" placeholder:
-    // - If later your backend adds message.tags or tagName, you can filter properly.
-    // - For now, selectedTag is shown in UI but doesn't filter REST list.
-    filteredMessages() {
-      return this.messages;
-    },
-  },
+  // "computed: { filteredMessages ... }" IST GELÖSCHT 
+  // Das Backend filtert jetzt für uns!
 
   async mounted() {
     await Promise.all([this.loadTags(), this.loadMessages()]);
@@ -82,9 +77,10 @@ export default {
       await Promise.all([this.loadTags(), this.loadMessages()]);
     },
 
+    // NEU: Wenn ein Tag geklickt wird, laden wir die Nachrichten neu
     onSelectTag(tagName) {
       this.selectedTag = tagName;
-      // When your backend adds tags to messages, you can filter here.
+      this.loadMessages(); // <--- Trigger Backend Request
     },
 
     async loadTags() {
@@ -99,11 +95,21 @@ export default {
       }
     },
 
+    // NEU: Filter-Logik im Backend Aufruf
     async loadMessages() {
       this.messagesLoading = true;
       this.messagesError = null;
       try {
-        this.messages = await getMessages();
+        let url = '/messages';
+        
+        // Wenn ein Tag ausgewählt ist, hängen wir ?tag=IT an die URL
+        if (this.selectedTag) {
+          url += `?tag=${encodeURIComponent(this.selectedTag)}`;
+        }
+
+        const response = await api.get(url);
+        this.messages = response.data;
+
       } catch (e) {
         this.messagesError = e?.message || String(e);
       } finally {
@@ -111,24 +117,44 @@ export default {
       }
     },
 
+    // NEU: Der 2-Schritte-Prozess beim Erstellen
     async onCreateMessage(payload) {
       this.createLoading = true;
       this.createError = null;
       this.createSuccess = null;
 
       try {
-        if (!payload.title || !payload.body) {
-          throw new Error("Please fill title, and body.");
+        // Validierung
+        if (!payload.title || !payload.body || !payload.tagId) {
+          throw new Error("Bitte Titel, Text und ein Thema wählen.");
         }
 
-        await createMessage(payload);
+        // SCHRITT 1: Nachricht erstellen
+        const msgResponse = await api.post('/messages', {
+          title: payload.title,
+          body: payload.body
+        });
+        
+        const newMessageId = msgResponse.data.id;
 
-        this.createSuccess = "Published successfully!";
+        // SCHRITT 2: Tag verknüpfen
+        await api.post(`/messages/${newMessageId}/tags`, {
+          tagId: payload.tagId
+        });
+
+        this.createSuccess = "Nachricht erfolgreich veröffentlicht!";
+        
+        // Feed neu laden, damit die neue Nachricht oben erscheint
         await this.loadMessages();
+
       } catch (e) {
-        this.createError = e?.response?.data?.details || e?.message || String(e);
+        this.createError = e?.response?.data?.error || e?.message || String(e);
       } finally {
         this.createLoading = false;
+        // Erfolgsmeldung nach 3 Sekunden ausblenden
+        if (this.createSuccess) {
+          setTimeout(() => (this.createSuccess = null), 3000);
+        }
       }
     },
   },

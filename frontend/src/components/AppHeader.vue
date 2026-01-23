@@ -9,9 +9,6 @@
     </div>
 
     <div class="actions">
-      <a class="link" :href="apiDocsUrl" target="_blank" rel="noreferrer">API Docs</a>
-      <button class="btn" @click="$emit('refresh')">Refresh</button>
-      
       <button class="btn logout-btn" @click="logout">Logout</button>
     </div>
   </header>
@@ -28,7 +25,7 @@ export default {
   methods: {
     logout() {
       localStorage.removeItem("user");
-      localStorage.removeItem("token"); // <--- NEU: Auch das Token löschen
+      localStorage.removeItem("token"); 
       this.$router.push("/");
     }
   }

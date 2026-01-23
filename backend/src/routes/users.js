@@ -192,6 +192,46 @@ router.post("/:id/subscriptions", async (req, res) => {
 });
 
 /**
+ * DELETE /users/:id/subscriptions/:tagId
+ * Subscription löschen (Unsubscribe)
+ */
+router.delete("/:id/subscriptions/:tagId", async (req, res) => {
+  const { id, tagId } = req.params;
+
+  // Validierung der UUIDs
+  if (!isUuid(id)) {
+    return res.status(400).json({ error: "Invalid user id (must be UUID)" });
+  }
+  if (!tagId || !isUuid(tagId)) {
+    return res.status(400).json({ error: "Invalid tag id (must be UUID)" });
+  }
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM subscriptions 
+       WHERE user_id = $1::uuid AND tag_id = $2::uuid`,
+      [id, tagId]
+    );
+
+    // Optional: Prüfen, ob überhaupt was gelöscht wurde
+    if (result.rowCount === 0) {
+      // Man könnte 404 senden, oder einfach 200 (idempotent)
+      // Hier senden wir 200 mit Info, das ist okay für die UI.
+      return res.status(200).json({ message: "Subscription not found or already deleted" });
+    }
+
+    return res.json({ success: true, message: "Unsubscribed successfully" });
+  } catch (err) {
+    console.error("Error deleting subscription:", err.message);
+    return res.status(500).json({
+      error: "Failed to delete subscription",
+      details: err.message,
+      code: err.code || null,
+    });
+  }
+});
+
+/**
  * GET /users/:id/subscriptions
  * Abonnierte Tags eines Users holen
  */
